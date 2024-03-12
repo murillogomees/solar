@@ -1,0 +1,2486 @@
+<?php
+/**
+ * User Controller
+ */
+class OrderController extends Controller
+{
+    /**
+     * Process
+     */
+    public function process()
+    {
+        $Route = $this->getVariable("Route");
+        $AuthUser = $this->getVariable("AuthUser");
+
+        // Auth
+        if (!$AuthUser){
+            header("Location: ".APPURL."/login");
+            exit;
+        } else if ($AuthUser->get("is_active") == 0) {
+             header("Location: ".APPURL."/aguarde");
+             exit;
+        }
+
+        $User = Controller::model("Order");
+
+        if (isset($Route->params->id)) {
+					
+					$permisaoUsuario = json_decode($AuthUser->get("permissoes_usuarios"), true);
+					$permissaoFilial = json_decode($AuthUser->get("permissoes_filiais"), true);
+					$User->select($Route->params->id);
+					
+					 if($User->get("responsavel") == '888' ){
+									header("Location: ".APPURL."/order");
+						} else{
+						 
+					$idResponsavel = $User->get("responsavel");
+					$LojaResponsavel = $User->get("loja_responsavel");
+					if (!$User->isAvailable()) {
+							header("Location: ".APPURL."/order");
+							exit;
+					}
+					 if ($AuthUser->get("account_type") == "vendedor"){
+						
+						if ($AuthUser->get("id") == $idResponsavel || in_array($idResponsavel, $permisaoUsuario) ){
+						
+						}else{
+						header("Location: ".APPURL."/order");
+							exit;
+						}
+					 } else if ($AuthUser->get("account_type") == "supervisor"){		
+						if ($User->get("loja_responsavel") != $AuthUser->get("office")){
+			      if ($AuthUser->get("id") == $idResponsavel || in_array($idResponsavel, $permisaoUsuario) || $permissaoFilial != null ){
+							
+						}else{
+							header("Location: ".APPURL."/order");
+						}
+						}
+					}
+					 }
+					
+        }
+			
+			
+				$Clients = Controller::model("Clientes");
+				$Usuarios = Controller::model("Users");
+					
+				if (!$AuthUser->canEdit($AuthUser)){ 
+         $filial = $AuthUser->get("office");				
+			   $query = "office = '$filial' " ;	 
+					
+				 $Usuarios->where(DB::raw("$query")) 
+								->orderBy("firstname","ASC")
+                ->fetchData();	
+
+					
+				} else {				
+					
+				$Usuarios->where("is_active","=", 1)								
+								->orderBy("firstname","ASC")
+                ->fetchData();		
+				} 
+			
+				if ($AuthUser->get("account_type") == "integrador"){	
+					$Usuarios->where("id","=", $AuthUser->get("id"))
+								->orderBy("firstname","ASC")
+                ->fetchData();
+					$Clients->where("owner","=", $AuthUser->get("id"))
+								->orderBy("id","DESC")
+								->fetchData();
+				} else {
+					$Clients->where("branch","=", $AuthUser->get("office"))					
+							 		->orderBy("name","ASC")
+               		->fetchData();
+				}
+			
+        $this->setVariable("Clients", $Clients);
+			
+				$Fretes = Controller::model("Shipping");
+     		$Fretes->orderBy("name","ASC")
+						->fetchData();
+			
+       	$this->setVariable("Fretes", $Fretes);	
+      
+       //get Product Models
+       $ProdModel = Controller::model("ProductModels");
+       $ProdModel->where("is_active","=", 1)
+				 				->orderBy("name","ASC")
+                 ->fetchData();
+			
+			//get Product Models
+       $Prod = Controller::model("Products");
+       $Prod->where("is_active","=", 1)
+				 		->orderBy("name","ASC")
+            ->fetchData();
+      
+      //get payment
+       $Payment = Controller::model("Payments");
+       $Payment->where("is_active","=", 1)
+				 				->orderBy("name","ASC")
+               ->fetchData();
+      
+      //get producer
+      $Producer = Controller::model("Producers");
+      $Producer->where("is_active","=", 1)
+								->orderBy("name","ASC")
+                  ->fetchData();
+      
+      //get kit
+      $ProductKits = Controller::model("ProductKits");
+      $ProductKits->where("is_active","=", 1)
+									->orderBy("name","ASC")
+                  ->fetchData();
+      
+      //get kit
+      $Branchs = Controller::model("Branchs");
+      $Branchs->where("is_active","=", 1)
+			       	->where("tipo_filial","=", 1)
+						->orderBy("name","ASC")
+                  ->fetchData();
+      
+      //get kit
+      $States = Controller::model("States");
+      $States->where("is_active","=", 1)
+							->orderBy("name","ASC")
+                  ->fetchData();
+      
+       $ProdKit = Controller::model("Products");
+			 $ProdKit->where("is_active","=", 1)
+				       ->orderBy("name","ASC")
+				 			 ->fetchData();
+			
+			 $ProdK = [];
+			 $ProdI = [];	
+			 $ProdC = [];
+			
+			foreach($ProdKit->getDataAs("Product") as $p){
+				if ($p->get("product_type") == "Kit de Fixação"){
+					if(!in_array($p->get("producer"), $ProdK)) {
+						$ProdK[] = $p->get("producer");
+						
+					}
+				} else if ($p->get("product_type") == "Inversor"){
+					if(!in_array($p->get("producer"), $ProdI)) {
+						$ProdI[] = $p->get("producer");						
+					}	
+				} else if ($p->get("product_type") == "Cabo Negativo" || $p->get("product_type") == "Cabo Positivo"){
+					if(!in_array($p->get("producer"), $ProdC)) {
+						$ProdC[] = $p->get("producer");						
+					}	
+				}
+			}
+			
+
+			 $this->setVariable("Prod", $Prod);
+			 $this->setVariable("ProdCabo", $ProdC);	
+			 $this->setVariable("ProdInversor", $ProdI);
+       $this->setVariable("ProdKit", $ProdK);
+       $this->setVariable("ProdModel", $ProdModel);
+       $this->setVariable("User", $User);
+       $this->setVariable("Payment" , $Payment);
+       $this->setVariable("Producer" , $Producer);
+       $this->setVariable("ProductKits" , $ProductKits);
+       $this->setVariable("Branchs" , $Branchs);
+       $this->setVariable("States" , $States);
+			 $this->setVariable("Usuarios" , $Usuarios);
+
+        if (Input::post("action") == "saveRascunho") {
+           $this->saveRascunho();
+        } else if (Input::post("action") == "save") {
+           $this->save();
+        } else if (Input::post("action") == "copy"){
+          $this->copyOrder();
+        } else if (Input::post("action") == "searchUF"){
+          $this->searchUF();
+        }  else if (Input::post("action") == "selectKit"){
+          $this->selectKit();
+        }  else if (Input::post("action") == "calcFrete"){
+          $this->calcFrete();
+        } else if (Input::post("action") == "calcQuantidade"){
+          $this->calcQuantidade();
+        } else if (Input::post("action") == "calcValue"){
+          $this->calcValue();
+        } else if (Input::post("action") == "selectProduct"){
+          $this->selectProduct();
+        } else if (Input::post("action") == "selectInversor"){
+					$this->selectInversor();
+				} else if (Input::post("action") == "selectCabo"){
+					$this->selectCabo();
+				} else if (Input::post("action") == "selectKitdeFixacao"){
+					$this->selectKitdeFixacao();
+				} else if (Input::post("action") == "states"){
+					$this->states();
+				} else if (Input::post("action") == "selectClientes"){
+					$this->selectClientes();
+				}  else if (Input::post("action") == "linkFinanciamento"){
+					$this->linkFinanciamento();
+				}  else if (Input::post("action") == "ExisteFrete"){
+					$this->ExisteFrete();
+				} else if (Input::post("action") == "removeRascunho") {
+           $this->removeRascunho();
+        } else if (Input::post("action") == "selectTC") {
+           $this->selectTC();
+        } else if (Input::post("action") == "selectConectores") {
+           $this->selectConectores();
+        } else if (Input::post("action") == "selectGateway") {
+           $this->selectGateway();
+        } else if (Input::post("action") == "selectAcoplador") {
+           $this->selectAcoplador();
+        }
+			
+				$rascunho = 0;
+		  	$this->setVariable("rascunho", $rascunho);
+								
+				$this->view("order");
+				
+        
+    }
+	
+		/**
+     * Save (new|edit) user
+     * @return void
+     */
+    private function selectClientes()
+    {
+        $this->resp->result = 0;
+      
+      $Clientes = Controller::model("Clientes");
+      $Clientes->search(Input::post("q"))
+							 ->setPageSize(50)
+               ->setPage(1)							
+							 ->orderBy("name","ASC")
+               ->fetchData();
+				
+				$data = [];
+			
+				foreach($Clientes->getDataAs("Cliente") as $f){
+					$data[] = [
+						"id" => $f->get("id"),
+						"name" => $f->get("name"),
+						"cnpj" => formata_cpf_cnpj($f->get("cnpj"))
+					];
+				}
+			
+        $this->resp = $data;       
+        
+        $this->jsonecho();
+    }
+	
+		/**
+     * Save (new|edit) user
+     * @return void
+     */
+    private function states()
+    {
+        $this->resp->result = 0;
+      
+         $States = Controller::model("States");
+      $States->where("is_active","=", 1)
+							->orderBy("name","ASC")
+                  ->fetchData();
+				
+				$stat = [];
+			
+				foreach($States->getDataAs("State") as $f){
+					$stat[] = [
+						"uf" => $f->get("uf"),
+						"name" => $f->get("name")
+					];
+				}
+			
+        $this->resp->states = $stat;       
+        
+        $this->jsonecho();
+    }
+	
+		/**
+     * Save (new|edit) user
+     * @return void
+     */
+    private function linkFinanciamento()
+    {
+        $this->resp->result = 0;
+      
+        $Payment = Controller::model("Payment", Input::post("valor"));     
+			
+				if ($Payment->get("site") != ""){
+					$this->resp->result = 1;
+					$this->resp->payment = $Payment->get("site");
+				}   
+        
+        $this->jsonecho();
+    }
+	
+	
+		/**
+     * Save (new|edit) user
+     * @return void
+     */
+    public function linkFinanciamentoEstatico($id)
+    {
+      $Pagamento = Controller::model("Payment", $id);
+     
+			return $Pagamento->get("site");
+    }
+  
+    /**
+     * Save (new|edit) user
+     * @return void
+     */
+    private function searchUF()
+    {
+        $this->resp->result = 0;
+      
+        $id = Input::post("id");
+      
+        $ClienteUF = Controller::model("Cliente", $id);       
+      
+        $this->resp->uf = $ClienteUF->get("uf");
+        $this->resp->type = $ClienteUF->get("client_type");
+       
+        $this->resp->result = 1;
+        
+        $this->jsonecho();
+    }
+  
+    /**
+     * Save (new|edit) user
+     * @return void
+     */
+  private function calcValue()
+    {
+        $this->resp->result = 0;
+        $AuthUser = $this->getVariable("AuthUser");
+			
+        // ID do Produto
+        $id = Input::post("id");
+        // Tipo do Orçamento
+        $typeOder = Input::post("typeOrder");
+				// Tipo de Frete
+        $frete = Input::post("frete");
+        // UF de Destino
+        $ufClient = strtolower(Input::post("ufClient"));
+        // UF de Origem
+        $ufBranch = strtolower(Input::post("ufBranch"));
+        // Perfil Tributário do Cliente
+        $typeClient = Input::post("typeClient");
+        // Se é para consumo próprio
+        $useConsume = Input::post("useConsume"); 
+        // Valor do KwP
+        $kwp = Input::post("kwp");
+			  // Condição de pagamento
+				$pagamento = Input::post("paymentMode");
+			  // Comissao de vendas
+				$comissao = floatval (Input::post("comissao"))/100;
+				 // Desconto de vendas
+				$desconto = str_replace(',', '.',Input::post("desconto"))/100;
+        // Quantidade de Produto se Tiver
+        $qntActive = Input::post("qnt");
+		
+		    $tensao = Input::post("tensao");
+		    $fases = Input::post("fases");
+			
+        // Seleção do Produto      
+        $Product = Controller::model("Product", $id); 
+				$productType = $Product->get("product_type");
+			
+				if ($Product->get("datasheet") != ""){
+					$this->resp->datasheet = $Product->get("datasheet");
+				} else {
+					$this->resp->datasheet = "javascript:void(0)";
+				}
+				
+				// Inicio do Cálculo
+				$CredIcms = str_replace(',', '.',$Product->get("finance.cred_icms"))/100;
+				$MargemBruta = (str_replace(',', '.',$Product->get("margem_product")))/100;
+        $this->resp->kwpReal = 0;
+        // Calcular Quantidade de Produtos
+		
+		
+		     if($Product->get("producer") != "ENPHASE"){
+					 $QuantidadePainel = Input::post("painel"); 
+        switch($productType){
+          case "Painel":
+            $ProductKwPs = $Product->get("finance");
+            $Json_KwP = json_decode($ProductKwPs);        
+            $qnt = $Json_KwP->watts;
+            $quantidade = ((str_replace(',', '.',$kwp)) * 1000) / $qnt;
+						$qntPlaca = (round($quantidade/2))*2;
+            $this->resp->qnt = $qntPlaca;
+						$Quant = ((int) $qnt) / 1000;
+						$KwpReal = $qntPlaca * $Quant;						
+						
+						$this->resp->kwpReal = $KwpReal;
+            $qntProduto = (round($quantidade/2))*2;					
+						//his->resp->kwpReal = $qntProduto * ($qnt / 1000);
+            break;
+          case "Kit de Fixação":           
+            $QuantidadePainel = Input::post("painel"); 
+						
+						$KitFix = Controller::model("Product", Input::post("idkit"));						
+						
+            $QuantidadeKit =  $QuantidadePainel / $Product->get("finance.mppt");
+            $this->resp->qnt = ceil($QuantidadeKit);
+            $qntProduto = $QuantidadeKit;
+            break;   
+          case "Cabo Positivo":
+						
+            $QuantidadePainel = Input::post("painel");
+						$this->resp->qnt = "Não foi dessa vez";
+						if ($Product->get("producer") == "REICON"){							
+						
+							if ($QuantidadePainel < 25) {
+								$qntCabo = 50;								
+							} else if ($QuantidadePainel >= 25 && $QuantidadePainel <= 36){
+								$qntCabo = 70;							
+							} else if ($QuantidadePainel >= 37 && $QuantidadePainel <= 75){
+								$qntCabo = 100;							
+							} else if ($QuantidadePainel >= 76 && $QuantidadePainel <= 100){
+								$qntCabo = 150;							
+							} else if ($QuantidadePainel > 100 && $QuantidadePainel <= 199){
+								$qntCabo = 300;							
+							} else if ($QuantidadePainel > 200){
+								$qntCabo = 300 * ($QuantidadePainel / 100);							
+							} else {
+								$qntCabo = 50;
+							}
+						
+							if ($Product->get("finance.mppt") > $qntCabo){
+								$QuantidadeCabo = 1;
+								$this->resp->qnt = 1;
+								$qntProduto = 1;
+							} else {
+								
+								$qnt = 1;
+								
+								while($Product->get("finance.mppt") < $qntCabo){
+									$qntCabo = $qntCabo - $Product->get("finance.mppt");
+									$qnt++;
+								}
+								
+								$QuantidadeCabo = $qnt;
+								$this->resp->qnt = $qnt;
+								$qntProduto = $qnt;
+							}
+						} else {
+							$QuantidadeCabo =  $QuantidadePainel * 2.1;
+            	$this->resp->qnt = (ceil($QuantidadeCabo/10))*10;
+            	$qntProduto = (ceil($QuantidadeCabo/10))*10;
+						}
+						
+            break; 
+					case "Cabo Negativo":
+            $QuantidadePainel = Input::post("painel");
+						$this->resp->qnt = "Não foi dessa vez";
+						if ($Product->get("producer") == "REICON"){							
+						
+			        if ($QuantidadePainel < 25) {
+								$qntCabo = 50;								
+							} else if ($QuantidadePainel >= 25 && $QuantidadePainel <= 36){
+								$qntCabo = 70;							
+							} else if ($QuantidadePainel >= 37 && $QuantidadePainel <= 75){
+								$qntCabo = 100;							
+							} else if ($QuantidadePainel >= 76 && $QuantidadePainel <= 100){
+								$qntCabo = 150;							
+							} else if ($QuantidadePainel > 100 && $QuantidadePainel <= 199){
+								$qntCabo = 300;							
+							} else if ($QuantidadePainel > 200){
+								$qntCabo = 300 * ($QuantidadePainel / 100);							
+							} else {
+								$qntCabo = 50;
+							}
+						
+							if ($Product->get("finance.mppt") > $qntCabo){
+								$QuantidadeCabo = 1;
+								$this->resp->qnt = 1;
+								$qntProduto = 1;
+							} else {
+								
+								$qnt = 1;
+								
+								while($Product->get("finance.mppt") < $qntCabo){
+									$qntCabo = $qntCabo - $Product->get("finance.mppt");
+									$qnt++;
+								}
+								
+								$QuantidadeCabo = $qnt;
+								$this->resp->qnt = $qnt;
+								$qntProduto = $qnt;
+							}
+						} else {
+							$QuantidadeCabo =  $QuantidadePainel * 2.1;
+            	$this->resp->qnt = (ceil($QuantidadeCabo/10))*10;
+            	$qntProduto = (ceil($QuantidadeCabo/10))*10;
+						}
+            break; 						
+				case "Conectores MC4":
+						$InversorEscolhido = Input::post("inversor");						
+						$Inversor = Controller::model("Product", $InversorEscolhido);
+						$qntMPPT = $Inversor->get("finance.mppt");
+						$qntMPPT = $qntMPPT + 1;
+            $this->resp->qnt = $qntMPPT;
+            $qntProduto = $qntMPPT;
+            break;
+					 case "Trilho":
+						$QuantidadeKit = Input::post("kit");
+						$this->resp->QuantidadeKit = $QuantidadeKit;
+						$Kit = Controller::model("Product", Input::post("idkit"));
+					
+						if ($Kit->get("finance.mppt") == "2"){
+							if ($Product->get("finance.mppt") == "2"){
+								$qntTrilho = $QuantidadeKit * 2;							
+							} else if ($Product->get("finance.mppt") == "4"){
+								$qntTrilho = $QuantidadeKit;							
+							} else {
+								$qntTrilho = 1;							
+							}
+						} else if($Kit->get("finance.mppt") == 4){
+							if ($Product->get("finance.mppt") == 2){
+								$qntTrilho = $QuantidadeKit * 4;							
+							} else if ($Product->get("finance.mppt") == "4"){
+								$qntTrilho = $QuantidadeKit * 2;								
+							} else {
+								$qntTrilho = 1;								
+							}
+						}
+						
+            $this->resp->qnt = (ceil($qntTrilho/2))*2;
+            $qntProduto = (ceil($qntTrilho/2))*2;
+            break;	
+					default:
+			 if(strpos($Product->get("name"), 'MARTELO') !== false){
+						   $QuantidadePainel = Input::post("painel");
+               $this->resp->qnt = $QuantidadePainel;
+					} else {
+				 
+						$this->resp->qnt = 1;
+						$qntProduto = "1";
+			 }
+							 
+						
+        }
+				 } else if( $Product->get("producer") == "ENPHASE"){
+					 
+
+				 switch($productType){
+          case "Painel":
+            $ProductKwPs = $Product->get("finance");
+            $Json_KwP = json_decode($ProductKwPs);        
+            $qnt = $Json_KwP->watts;
+            $quantidade = ((str_replace(',', '.',$kwp)) * 1000) / $qnt;
+						$qntPlaca = (round($quantidade/2))*2;
+            $this->resp->qnt = $qntPlaca;
+						$Quant = ((int) $qnt) / 1000;
+						$KwpReal = $qntPlaca * $Quant;						
+						
+						$this->resp->kwpReal = $KwpReal;
+            $qntProduto = (round($quantidade/2))*2;					
+						//his->resp->kwpReal = $qntProduto * ($qnt / 1000);
+            break;
+				  case "Inversor":
+						$QuantidadePainel = Input::post("painel");
+            $this->resp->qnt = $QuantidadePainel;
+            $qntProduto = $QuantidadePainel;				
+				
+            break;
+					  case "Suporte":
+					
+						if($tensao == '4'){
+            $this->resp->qnt = 2;
+						 } else if ($tensao == '3'){
+						$this->resp->qnt = 3;	
+						} else if ($tensao == '2' && $fases == "1") {
+						$this->resp->qnt = 1;		
+						} else if ($tensao == '2' && $fases >= "2") {
+						$this->resp->qnt = 2;		
+						} else if ($tensao == '1' && $fases == "1") {
+						$this->resp->qnt = 2;		
+						} else if ($tensao == '1' && $fases == "2") {
+						$this->resp->qnt = 3;		
+						} else if ($tensao == '1' && $fases == "3") {
+						$this->resp->qnt = 4;		
+						} 
+							 
+						 
+						 
+						$QuantidadePainel = Input::post("painel");
+            $qntProduto = $QuantidadePainel;				
+				
+            break;	 
+				  case "Cabo":
+						 
+						if(strpos($Product->get("name"), 'CABO TRONCO') !== false){
+						   $QuantidadePainel = Input::post("painel");
+               $this->resp->qnt = $QuantidadePainel;
+
+					} if(strpos($Product->get("name"), 'CABO PP') !== false){
+						   $QuantidadePainel = Input::post("painel");
+					     $qtdC = ( $QuantidadePainel / 10);
+							 $qtd =  round($qtdC, 0);
+							 $QTDfinal = ($qtd + 1 ) * 10;
+               $this->resp->qnt = $QTDfinal;
+					}  else{
+							
+						      // $this->resp->qnt = 55;	
+						}
+						 
+						 
+            $qntProduto = $QuantidadePainel;				
+				
+          break; 
+          case "Kit de Fixação":           
+            $QuantidadePainel = Input::post("painel"); 
+						
+						$KitFix = Controller::model("Product", Input::post("idkit"));						
+						
+            $QuantidadeKit =  $QuantidadePainel / $Product->get("finance.mppt");
+            $this->resp->qnt = ceil($QuantidadeKit);
+            $qntProduto = $QuantidadeKit;
+            break;   
+          case "Cabo Positivo":
+						
+            $QuantidadePainel = Input::post("painel");
+						$this->resp->qnt = "Não foi dessa vez";
+						if ($Product->get("producer") == "REICON"){							
+						
+							if ($QuantidadePainel < 25) {
+								$qntCabo = 50;								
+							} else if ($QuantidadePainel >= 25 && $QuantidadePainel <= 36){
+								$qntCabo = 70;							
+							} else if ($QuantidadePainel >= 37 && $QuantidadePainel <= 75){
+								$qntCabo = 100;							
+							} else if ($QuantidadePainel >= 76 && $QuantidadePainel <= 100){
+								$qntCabo = 150;							
+							} else if ($QuantidadePainel > 100 && $QuantidadePainel <= 199){
+								$qntCabo = 300;							
+							} else if ($QuantidadePainel > 200){
+								$qntCabo = 300 * ($QuantidadePainel / 100);							
+							} else {
+								$qntCabo = 50;
+							}
+						
+							if ($Product->get("finance.mppt") > $qntCabo){
+								$QuantidadeCabo = 1;
+								$this->resp->qnt = 1;
+								$qntProduto = 1;
+							} else {
+								
+								$qnt = 1;
+								
+								while($Product->get("finance.mppt") < $qntCabo){
+									$qntCabo = $qntCabo - $Product->get("finance.mppt");
+									$qnt++;
+								}
+								
+								$QuantidadeCabo = $qnt;
+								$this->resp->qnt = $qnt;
+								$qntProduto = $qnt;
+							}
+						} else {
+							$QuantidadeCabo =  $QuantidadePainel * 2.1;
+            	$this->resp->qnt = (ceil($QuantidadeCabo/10))*10;
+            	$qntProduto = (ceil($QuantidadeCabo/10))*10;
+						}
+						
+            break; 
+					case "Cabo Negativo":
+            $QuantidadePainel = Input::post("painel");
+						$this->resp->qnt = "Não foi dessa vez";
+						if ($Product->get("producer") == "REICON"){							
+						
+			        if ($QuantidadePainel < 25) {
+								$qntCabo = 50;								
+							} else if ($QuantidadePainel >= 25 && $QuantidadePainel <= 36){
+								$qntCabo = 70;							
+							} else if ($QuantidadePainel >= 37 && $QuantidadePainel <= 75){
+								$qntCabo = 100;							
+							} else if ($QuantidadePainel >= 76 && $QuantidadePainel <= 100){
+								$qntCabo = 150;							
+							} else if ($QuantidadePainel > 100 && $QuantidadePainel <= 199){
+								$qntCabo = 300;							
+							} else if ($QuantidadePainel > 200){
+								$qntCabo = 300 * ($QuantidadePainel / 100);							
+							} else {
+								$qntCabo = 50;
+							}
+						
+							if ($Product->get("finance.mppt") > $qntCabo){
+								$QuantidadeCabo = 1;
+								$this->resp->qnt = 1;
+								$qntProduto = 1;
+							} else {
+								
+								$qnt = 1;
+								
+								while($Product->get("finance.mppt") < $qntCabo){
+									$qntCabo = $qntCabo - $Product->get("finance.mppt");
+									$qnt++;
+								}
+								
+								$QuantidadeCabo = $qnt;
+								$this->resp->qnt = $qnt;
+								$qntProduto = $qnt;
+							}
+						} else {
+							$QuantidadeCabo =  $QuantidadePainel * 2.1;
+            	$this->resp->qnt = (ceil($QuantidadeCabo/10))*10;
+            	$qntProduto = (ceil($QuantidadeCabo/10))*10;
+						}
+            break; 						
+				case "Conectores MC4":
+						$InversorEscolhido = Input::post("inversor");						
+						$Inversor = Controller::model("Product", $InversorEscolhido);
+						$qntMPPT = $Inversor->get("finance.mppt");
+						$qntMPPT = $qntMPPT + 1;
+            $this->resp->qnt = $qntMPPT;
+            $qntProduto = $qntMPPT;
+						 
+						 if(strpos($Product->get("name"), 'Q-TERM') !== false){
+						   $QuantidadePainel = Input::post("painel");
+					     $qtdC = ( $QuantidadePainel / 10);
+							 $qtd =  round($qtdC, 0);
+							 if($qtd < $qtdC){
+								 $QTDfinal = $qtd + 1;
+                } else {
+							 $QTDfinal = $qtd ;
+							 }
+							 
+							 
+            $this->resp->qnt = $QTDfinal;
+					} else if(strpos($Product->get("name"), 'CONECTOR FEMEA') !== false){
+						   $QuantidadePainel = Input::post("painel");
+					     $qtdC = ( $QuantidadePainel / 10);
+							 $qtd =  round($qtdC, 0);
+							 if($qtd < $qtdC){
+								 $QTDfinal = $qtd + 1;
+                } else {
+							 $QTDfinal = $qtd ;
+							 }
+							 
+            $this->resp->qnt = $QTDfinal;
+					} else if(strpos($Product->get("name"), 'CONECTOR MACHO') !== false){
+						   $QuantidadePainel = Input::post("painel");
+					     $qtdC = ( $QuantidadePainel / 10);
+							 $qtd =  round($qtdC, 0);
+							 if($qtd < $qtdC){
+								 $QTDfinal = $qtd + 1;
+                } else {
+							 $QTDfinal = $qtd ;
+							 }
+							 
+            $this->resp->qnt = $QTDfinal;
+					}  
+						
+            break;
+					 case "Trilho":
+						$QuantidadeKit = Input::post("kit");
+						$this->resp->QuantidadeKit = $QuantidadeKit;
+						$Kit = Controller::model("Product", Input::post("idkit"));
+					
+						if ($Kit->get("finance.mppt") == "2"){
+							if ($Product->get("finance.mppt") == "2"){
+								$qntTrilho = $QuantidadeKit * 2;							
+							} else if ($Product->get("finance.mppt") == "4"){
+								$qntTrilho = $QuantidadeKit;							
+							} else {
+								$qntTrilho = 1;							
+							}
+						} else if($Kit->get("finance.mppt") == 4){
+							if ($Product->get("finance.mppt") == 2){
+								$qntTrilho = $QuantidadeKit * 4;							
+							} else if ($Product->get("finance.mppt") == "4"){
+								$qntTrilho = $QuantidadeKit * 2;								
+							} else {
+								$qntTrilho = 1;								
+							}
+						}
+						
+            $this->resp->qnt = (ceil($qntTrilho/2))*2;
+            $qntProduto = (ceil($qntTrilho/2))*2;
+            break;	
+					default:
+
+						$this->resp->qnt = 1;
+						$qntProduto = "1";
+							 
+				
+          }
+				 }
+		
+		
+        
+        // Verificar se produto está sendo setado quantidade na mão
+        if ($qntActive != ""){
+					if ($productType == "Painel"){
+						$ProductKwPs = $Product->get("finance");
+            $Json_KwP = json_decode($ProductKwPs);        
+            $qnt = $Json_KwP->watts;
+            $quantidade = ((str_replace(',', '.',$kwp)) * 1000) / $qnt;
+						$qntPlaca = (round($quantidade/2))*2;
+            $this->resp->qnt = $qntActive;
+						$Quant = ((int) $qnt) / 1000;
+						$KwpReal = $qntActive * $Quant;						
+						
+						$this->resp->kwpReal = $KwpReal;
+            $qntProduto = (round($quantidade/2))*2;		
+					}
+					if ($qntActive == 0){
+					$this->resp->qnt = 1;
+          $qntProduto = 1;	
+					} else {
+					$this->resp->qnt = $qntActive;
+          $qntProduto = $qntActive;	
+					}
+         
+        }
+				
+				$estoque = $Product->get("estoque");
+				$nomeEstoque = $Product->get("name");
+			
+				if ($estoque < $qntProduto || $estoque == null){
+					$this->resp->estoque = 1;
+					$this->resp->nomeEstoque = $nomeEstoque;
+					$this->resp->qntEstoque = $estoque;
+				}
+        
+				$selectIcms = "0";
+			
+        // Verifica se o tipo do orçamento encaixa no ICMS 
+        $ProductKit = Controller::model("ProductKit", $typeOder);
+  
+        if ($ProductKit->get("is_active_icms") == "1") {
+         $this->resp->onde = "ENTROU NO KIT";
+         $selectIcms = $ProductKit->get("icms.$ufBranch");
+         $DebIcms = $selectIcms->$ufClient;
+				 $MargemBruta = (str_replace(',', '.',$Product->get("margem_kit")))/100;
+				 $selectIcms = "1";
+        } else if ($Product->get("is_active_icms") == "1"){
+          $this->resp->onde = "ENTROU NO PRODUTO";
+         	$selectIcms = $Product->get("icms.$ufBranch");
+         	$DebIcms = $selectIcms->$ufClient; 
+					$selectIcms = "1";
+        } else {          
+        // Verificação do Benefício Fiscal                      
+          $TaxBenefit = Controller::model("TaxBenefits"); 
+          $TaxBenefit->where("is_active","=","1")
+										 ->search($ufBranch)
+                     ->orderBy("id","DESC")
+                     ->fetchData();          
+  
+          foreach($TaxBenefit->getDataAs("TaxBenefit") as $t){
+            $TaxNcm = json_decode($t->get("ncm"));
+
+            if ($TaxNcm[0]->value == "Todos" || $TaxNcm[0]->value == $Product->get("ncm")){
+              $TaxProfiles = json_decode($t->get("tax_profiles"));
+
+             if ($TaxProfiles[0]->value == "Todos" || $TaxProfiles[0]->value == $typeClient){
+              $UFDestiny = json_decode($t->get("uf_destiny"));
+
+              if ($UFDestiny[0]->value == "Todos" || $UFDestiny[0]->value == $ufClient){
+                $this->resp->onde = "ENTROU NO BENEFITS";								
+								$benefit = json_decode($t->get("benefits"));
+								$tax = json_decode($t->get("tax_aliquota"));								
+									
+								if ($benefit[0]->id == "aliquota"){
+									$this->resp->onde = "Entrou na aliquota";
+									$CredIcms = $tax->credito->value;
+									$DebIcms = $tax->debito->value;
+									$selectIcms = "1";
+								} else if ($benefit[0]->id == "base") {
+									$this->resp->onde = "Entrou na base";
+									$CredIcms = $tax->credito->value;
+									$DebIcms = $tax->debito->value;
+									$selectIcms = "1";
+								} else if ($benefit[0]->id == "apuracao"){
+									$this->resp->onde = "Entrou na apuracao";
+									$CredIcms = $tax->credito->value;
+									$DebIcms = $tax->debito->value;
+									$selectIcms = "1";									
+								}
+                
+              }
+             } 
+            }            
+          }
+        }
+      
+        // Continua Filtro Caso não tenha encontrado nenhuma opção de ICMS
+      
+        if($selectIcms == "0"){
+          $segmentProduct = $Product->get("segment");
+          
+        // Verificação do Segmento     
+        $sProduct = Controller::model("ProductSegment", $segmentProduct);     
+        
+          if ($sProduct->get("is_active_icms") == "1"){
+            $this->resp->onde = "ENTROU EM SEGMENT";
+            $selectIcms = $sProduct->get("icms.$ufBranch");
+            $DebIcms = $selectIcms->$ufClient; 
+          } else {
+            // ICMS Geral
+            $this->resp->onde = "ENTROU EM ICMS GERAL";
+            $ICMSGeral = Controller::model("Icms");
+            $ICMSGeral->where("uf_beggin","=",$ufBranch)
+											->orderBy("id","DESC")
+                     	->fetchData();
+            
+            foreach ($ICMSGeral->getDataAs("Icm") as $i){              
+              $DebIcms = $i->get($ufClient); 
+							$this->resp->deb1 = $DebIcms;
+            }
+          }
+        }
+			
+				$Juros = 1;
+			
+				// Verificação de Condição de Pagamento 
+				$CPagamentos = Controller::model("Payment", $pagamento);
+				$Juros = (str_replace(',', '.', $CPagamentos->get("juros"))/100);   
+      
+        // CALCULOS DE PREÇOS
+      
+        $CustoUnitario = str_replace(',', '.',$Product->get("cust"));
+      
+        $IPI = $Product->get("finance.ipi")/100;               
+        $CredPisCofins = (str_replace(',', '.',$Product->get("finance.cred_pis")) + str_replace(',', '.',$Product->get("finance.cred_cofins")))/100;        
+      
+        $PrimeiroCampo = $CustoUnitario * (1 + $IPI);
+        $SegundoCampo = $PrimeiroCampo * $CredPisCofins;
+        $TerceiroCampo = $CustoUnitario * $CredIcms;  
+          
+        $CustoLiquido = $PrimeiroCampo - $SegundoCampo - $TerceiroCampo; 
+      
+        $this->resp->custliquid = $CustoLiquido; 
+      
+        $DebIcms = (str_replace(',', '.',$DebIcms))/100;
+     
+        $DebPisCofins = (str_replace(',', '.',$Product->get("finance.deb_pis")) + str_replace(',', '.',$Product->get("finance.deb_cofins")))/100;
+        $this->resp->deb2 = $DebPisCofins;
+        $CampoDivisao =  1 - $DebIcms - $DebPisCofins - $MargemBruta;
+       	$CampoDivisaoNormal =  1 - $DebIcms - $DebPisCofins;   
+        $PrecoProduto = $CustoLiquido / $CampoDivisao; 
+				$PrecoProdutoNormal = $CustoLiquido / $CampoDivisaoNormal;
+				
+				$PrecoUnitarioJuros = ($PrecoProduto * $Juros);
+				
+				if (Input::post("comissaoActive") == "1"){
+					if ($comissao != 0){
+			 	 		$PrecoUnitarioComissao = ($PrecoProduto * $comissao);
+					} else {
+						$PrecoUnitarioComissao = 0;
+					}
+				} 
+			
+				$PrecoFinalSemComissao = $PrecoProduto + $PrecoUnitarioJuros;
+				$PrecoFinal = $PrecoProduto + $PrecoUnitarioJuros + $PrecoUnitarioComissao;
+				
+				$margemAtual = str_replace(',', '.',Input::post("margemtotalCampo"));
+			
+				if ($desconto != ""){
+					if ($AuthUser->canEditOrder($AuthUser)){		
+							$PrecoDesconto = $PrecoFinal * $desconto;				
+							$PrecoFinal = $PrecoFinal - $PrecoDesconto;			
+					}
+				} else {
+					$desconto = 0;
+				}
+			
+        $PrecoTotalSemComissao = $PrecoFinalSemComissao * $qntProduto;
+        $PrecoTotal = $PrecoFinal * $qntProduto;
+				$CstTotal = $PrecoProdutoNormal * $qntProduto;
+				
+				$valorMargemUser = floatval($AuthUser->get("margem_usuario"));
+			  $valorMargemUsuario = $valorMargemUser / 100;
+				$PrecoTotalSemComissao = $PrecoTotalSemComissao	+ ($PrecoTotalSemComissao * $valorMargemUsuario);	
+				$PrecoFinal = $PrecoFinal + ($PrecoFinal * $valorMargemUsuario);	
+				$PrecoTotal = $PrecoTotal + ($PrecoTotal * $valorMargemUsuario);		
+				$CstTotal = $CstTotal + ($CstTotal * $valorMargemUsuario);	
+				
+			
+
+			
+				
+				$PrimeiroCampoPC = $PrecoTotalSemComissao * $DebPisCofins;
+				$SegundoCampoPC = ($CstTotal * (1 + $IPI)) * $CredPisCofins;
+				$CampoPc = $PrimeiroCampoPC - $SegundoCampoPC;
+			
+				$MargemLiquida = $PrecoTotalSemComissao - ($CstTotal + $CampoPc );
+				$MargemProduto = $PrecoTotalSemComissao - $MargemLiquida;				
+				$MargemProdutoK = $PrecoTotalSemComissao - $MargemProduto ;
+		    
+
+			  
+			
+				if ($desconto != ""){					
+					$MargemProdutoK = ($PrecoTotalSemComissao - $MargemProduto) - ($MargemProdutoK * $desconto);
+				}
+        $this->resp->margemUsuario = $valorMargemUser;
+				$this->resp->mar = $margemAtual;
+				$this->resp->desconto = $desconto;
+				$this->resp->margemLiq = $MargemLiquida;
+				$this->resp->cstTotal = $CstTotal;
+				$this->resp->campoPc = $CampoPc;
+				$this->resp->precototalsemjuros = $PrecoTotalSemComissao;
+				$this->resp->precosemcomissao = $PrecoFinalSemComissao;
+				$this->resp->precoproduto = $PrecoProdutoNormal;
+				$this->resp->comissao = $PrecoUnitarioComissao;
+				$this->resp->margemProduto = $MargemProdutoK;
+				$this->resp->margem = $MargemBruta;
+				$this->resp->campo = $CampoDivisao;
+				$this->resp->debicms = $DebIcms;
+			  $this->resp->juros = $Juros;
+			 	$this->resp->precojuros = $PrecoUnitarioJuros;
+				$this->resp->credicms = $CredIcms;
+        $this->resp->value = $PrecoFinal;       
+        $this->resp->totalvalue = $PrecoTotal;
+        $this->resp->type = $productType;
+        $this->resp->valuest = "0";        
+        $this->resp->result = 1;
+        
+        $this->jsonecho();
+    
+	
+	
+	
+	
+	}
+    /**
+     * Save (new|edit) user
+     * @return void
+     */
+    private function calcFrete()
+    {
+		  $this->resp->result = 0;
+		  $frete = Input::post("frete");
+		  $ufFrete = Input::post("ufFrete");
+		  $filial = Input::post("filial");
+		  $painel = Input::post("painel");
+			
+			if ($frete == "3"){
+				
+			$Shipping = Controller::model("Shipp", $ufFrete);
+        
+      $ShippingPrice = $Shipping->get("price_shipp");
+			
+      $priceShipping = $ShippingPrice * $painel;
+				
+			$this->resp->price = $ShippingPrice;
+			$this->resp->painel = $painel;
+      $this->resp->calcFrete = $priceShipping;  
+				
+			} else {
+				$this->resp->calcFrete = 0; 
+			}    
+			
+			$this->resp->result = 1;
+        
+      $this->jsonecho();
+      
+    }
+	
+		/**
+     * Save (new|edit) user
+     * @return void
+     */
+    private function selectProduct()
+    {
+       $this->resp->result = 0;
+       $AuthUser = $this->getVariable("AuthUser");
+        $ProducerKit = Controller::model("Products");
+			$cons = Input::post("cons");
+				if ($cons == "1"){					
+				$ProducerKit->where("is_active","=", 1)
+                 ->orderBy("name","ASC")
+                 ->fetchData();
+				} else {
+				$ProducerKit->where("product_type", "<>", "Painel")
+								 ->where("is_active","=", 1)
+                 ->orderBy("name","ASC")
+                 ->fetchData();
+				}
+								 
+        
+        $log = [];
+      
+        foreach($ProducerKit->getDataAs("Product") as $s){
+					$nome = "(" . $s->get("santri_cod") . ") " . $s->get("name");
+          $log[] = [
+            "name" => $nome,
+            "id" => $s->get("id"),
+						"datasheet" => $s->get("datasheet")
+          ];
+        }
+			
+      	$this->resp->conta = $AuthUser->get("account_type"); 
+        $this->resp->products = $log;       
+       	$this->resp->cons = $cons; 
+        $this->resp->result = 1;
+        
+        $this->jsonecho();
+    }
+	
+		/**
+     * Save (new|edit) user
+     * @return void
+     */
+    private function selectInversor()
+    {
+       $this->resp->result = 0;
+      
+        $ProducerInversor = Controller::model("Products")
+								 ->where("product_type", "=", "Inversor")
+					       ->where("producer", "=", Input::post("id"))
+								 ->where("is_active","=", 1)
+                 ->orderBy("name","ASC")
+                 ->fetchData();
+        
+        $log = [];
+      
+        foreach($ProducerInversor->getDataAs("Product") as $s){
+          $nome = "(" . $s->get("santri_cod") . ") " . $s->get("name") ;
+					$log[] = [
+            "name" => $nome,
+            "id" => $s->get("id")
+          ];
+        }
+      
+        $this->resp->productsInversor = $log;       
+       
+        $this->resp->result = 1;
+        
+        $this->jsonecho();
+    }
+	
+		/**
+     * Save (new|edit) user
+     * @return void
+     */
+    private function selectKitdeFixacao()
+    {
+       $this->resp->result = 0;
+      
+        $ProducerKitFix = Controller::model("Products")
+								 ->where("product_type", "=", "Kit de Fixação")
+								 ->where("product_model", "=", Input::post("model"))
+					       ->where("producer", "=", Input::post("producer"))
+								 ->where("is_active","=", 1)
+                 ->orderBy("name","ASC")
+                 ->fetchData();
+        
+        $log = [];
+      
+        foreach($ProducerKitFix->getDataAs("Product") as $s){
+	
+					$nome = "(" . $s->get("santri_cod") . ") " . $s->get("name");
+          $log[] = [
+            "name" => $nome,
+            "id" => $s->get("id")
+          ];
+        }
+      
+        $this->resp->producerKitFix = $log;       
+       
+        $this->resp->result = 1;
+        
+        $this->jsonecho();
+    }
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	    private function selectTC()
+    {
+       $this->resp->result = 0;
+      
+        $ProducerTCS = Controller::model("Products")
+								 ->where("product_type", "=", "Suporte")
+					       ->where("producer", "=", "ENPHASE")
+								 ->where("is_active","=", 1)
+                 ->orderBy("name","ASC")
+                 ->fetchData();
+        
+        $TCS = [];
+      
+        foreach($ProducerTCS->getDataAs("Product") as $s){
+					$nome = "(" . $s->get("santri_cod") . ") " . $s->get("name");
+          $TCS[] = [
+            "name" => $nome,
+            "id" => $s->get("id"),
+						"type" => $s->get("product_type")
+          ];
+        }
+      
+        $this->resp->TCS = $TCS;       
+       
+        $this->resp->result = 1;
+        
+        $this->jsonecho();
+    }
+	
+	
+		    private function selectAcoplador()
+    {
+       $this->resp->result = 0;
+      
+        $ProducerTCS = Controller::model("Products")
+					       ->where("producer", "=", "LEGRAND")
+								 ->where("is_active","=", 1)
+                 ->orderBy("name","ASC")
+                 ->fetchData();
+        
+        $acoplador = [];
+      
+        foreach($ProducerTCS->getDataAs("Product") as $s){
+					$nome = "(" . $s->get("santri_cod") . ") " . $s->get("name");
+          $acoplador[] = [
+            "name" => $nome,
+            "id" => $s->get("id"),
+						"type" => $s->get("product_type")
+          ];
+        }
+      
+        $this->resp->acoplador = $acoplador;       
+       
+        $this->resp->result = 1;
+        
+        $this->jsonecho();
+    }
+	
+
+		    private function selectConectores()
+    {
+       $this->resp->result = 0;
+      $AuthUser = $this->getVariable("AuthUser");
+					
+        $ProducerTCS = Controller::model("Products")
+					       ->where("producer", "=", "ENPHASE")
+								 ->where("is_active","=", 1)
+                 ->orderBy("name","ASC")
+                 ->fetchData();
+        
+        $caboTronco = [];
+				$conectorMacho = [];
+			  $conectorFemea = [];
+      
+        foreach($ProducerTCS->getDataAs("Product") as $i){
+					
+					 if(strpos($i->get("name"), 'CABO PP') !== false ){
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$caboTronco[] = [
+							"id" => $i->get("id"),
+							"name" => $nome,
+							"type" => $i->get("product_type")
+          	];
+					 
+					}else  if(strpos($i->get("name"), 'CONECTOR MACHO') !== false ){
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$conectorMacho[] = [
+							"id" => $i->get("id"),
+							"name" => $nome,
+							"type" => $i->get("product_type")
+          	];
+					}else if(strpos($i->get("name"), 'CONECTOR FEMEA') !== false ){
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$conectorFemea[] = [
+							"id" => $i->get("id"),
+							"name" => $nome,
+							"type" => $i->get("product_type")
+          	];
+					}
+					
+					
+					
+
+        }
+            	
+				$this->resp->conta = $AuthUser->get("account_type");
+        $this->resp->tronco = $caboTronco;
+				$this->resp->macho = $conectorMacho;
+				$this->resp->femea = $conectorFemea;
+					
+					//$this->resp->ff = $TipoRede;  
+       
+        $this->resp->result = 1;
+        
+        $this->jsonecho();
+    }
+		
+		private function selectGateway()
+    {
+       $this->resp->result = 0;
+       $AuthUser = $this->getVariable("AuthUser");
+				$TipoRede = Input::post("tensao");
+				$fases = Input::post("fases");
+				$medir = Input::post("medir");
+					
+					
+					
+        $ProducerTCS = Controller::model("Products")
+					       ->where("product_type", "=", "GATEWAY")
+								 ->where("is_active","=", 1)
+                 ->orderBy("name","ASC")
+                 ->fetchData();
+        
+        $tipoRede = [];
+      
+        foreach($ProducerTCS->getDataAs("Product") as $i){
+					
+					
+					
+					
+					 if(strpos($i->get("name"), 'AM1-230-60') !== false && ( $TipoRede == '1' || $TipoRede == '2' || $TipoRede == '5' ) ){
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$tipoRede[] = [
+							"id" => $i->get("id"),
+							"name" => $nome,
+							"type" => $i->get("product_type")
+          	];
+					}else  if(strpos($i->get("name"), 'AM3-3P') !== false &&  $TipoRede == '3'   ){
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$tipoRede[] = [
+							"id" => $i->get("id"),
+							"name" => $nome,
+							"type" => $i->get("product_type")
+          	];
+					}else if(strpos($i->get("name"), 'AM1-240') !== false &&  $TipoRede == '4'   ){
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$tipoRede[] = [
+							"id" => $i->get("id"),
+							"name" => $nome,
+							"type" => $i->get("product_type")
+          	];
+					}
+					
+					
+
+        }
+      
+        $this->resp->gateway = $tipoRede;  
+				$this->resp->conta = $AuthUser->get("account_type");	
+					$this->resp->ff = $TipoRede;  
+       
+        $this->resp->result = 1;
+        
+        $this->jsonecho();
+    }
+	
+	
+		/**
+     * Save (new|edit) user
+     * @return void
+     */
+     private function selectCabo()
+    {
+       $this->resp->result = 0;		
+			 
+			 $QuantidadePainel = (int)Input::post("painel");
+      
+       $ProducerCabo = Controller::model("Products");
+			 $ProducerCabo->where(DB::raw("(product_type = 'Cabo Positivo' OR product_type = 'Cabo Negativo') AND producer = '" . Input::post("id") . "' AND is_active = '1'"))
+                    ->orderBy("name","ASC")
+                    ->fetchData();
+         
+        $log = [];
+      
+        foreach($ProducerCabo->getDataAs("Product") as $s){
+					
+					if ($s->get("producer") == "REICON"){							
+
+						if ($QuantidadePainel < 25) {
+							$mpptCabo = 50;								
+						} else if ($QuantidadePainel >= 25 && $QuantidadePainel <= 36){
+							$mpptCabo = 70;							
+						} else if ($QuantidadePainel >= 37 && $QuantidadePainel <= 75){
+							$mpptCabo = 100;							
+						} else if ($QuantidadePainel >= 76 && $QuantidadePainel <= 100){
+							$mpptCabo = 150;							
+						} else if ($QuantidadePainel > 100){
+							$mpptCabo = 300;							
+						} 
+
+						if ($mpptCabo != $s->get("finance.mppt")){
+							continue;
+						}
+
+					}
+					
+          $nome = "(" . $s->get("santri_cod") . ") " . $s->get("name");
+					
+					if ($s->get("product_type") == "Cabo Positivo"){
+						$log1[] = [
+							"name" => $nome,
+							"id" => $s->get("id")
+          	];
+					} else {
+						$log2[] = [
+            "name" => $nome,
+            "id" => $s->get("id")
+          ];
+					}					
+        }
+      
+        $this->resp->productsCaboPositivo = $log1;       
+       	$this->resp->productsCaboNegativo = $log2;
+        $this->resp->result = 1;
+        
+        $this->jsonecho();
+    }
+	
+		/**
+     * Save (new|edit) user
+     * @return void
+     */
+    function InfoProduto($id)
+    {
+      $InfoProduto = Controller::model("Product", $id);
+      
+      return $InfoProduto;
+    }
+  
+    /**
+     * Save (new|edit) user
+     * @return void
+     */
+    private function selectKit()
+    {
+        $this->resp->result = 0;
+				$AuthUser = $this->getVariable("AuthUser");
+      	$model = Input::post("model");
+				$producerInversor = Input::post("producerInversor");
+				$producerKit = Input::post("producerKit");
+				$producerCabo = Input::post("producerCabo");
+			  $TipoRede = Input::post("TipoRede");
+			
+			
+			     if($producerInversor == "ENPHASE"){
+				
+						 
+						 
+						 
+						 
+				$Kits = Controller::model("Products");			
+			
+				$Kits->where("is_active","=", 1)
+						 ->where("producer","=",$producerKit)
+						 ->where("product_type","=","Kit de Fixação")
+						 ->where("product_model","=",$model)
+						 ->orderBy("name","ASC")
+						 ->fetchData();			
+				
+				$Inversor = Controller::model("Products");			
+			
+				$Inversor->where("is_active","=", 1)
+								 ->where("producer","=",$producerInversor)
+								 ->where("product_type","=","Inversor")								 
+								 ->orderBy("name","ASC")
+								 ->fetchData();
+			
+				$Trilhos = Controller::model("Products");			
+			
+				$Trilhos->where("is_active","=", 1)
+						 ->where("producer","=",$producerKit)
+						 ->where("product_type","=","Trilho")					
+						 ->orderBy("name","ASC")
+						 ->fetchData();
+			
+				$CabosP = Controller::model("Products");			
+			
+				$CabosP->where("is_active","=", 1)
+						 ->where("producer","=", $producerCabo)
+						 ->where("product_type","=","Cabo Positivo")					
+						 ->orderBy("name","ASC")
+						 ->fetchData();
+			
+				$CabosN = Controller::model("Products");			
+			
+				$CabosN->where("is_active","=", 1)
+						 ->where("producer","=", $producerCabo)
+						 ->where("product_type","=","Cabo Negativo")					
+						 ->orderBy("name","ASC")
+						 ->fetchData();
+			
+				$Produtos = Controller::model("Products");			
+			
+				$Produtos->where("is_active","=", 1)								 
+								 ->where("product_type","<>","Inversor")
+								 ->where("product_type","<>","Kit de Fixação")
+								 ->orderBy("name","ASC")
+								 ->fetchData();
+			
+        
+        $Inv = [];
+				$Kit = [];
+				$caboQ = [];
+			  $caboTerm = [];		
+			  $conectorFemea = [];		
+				$conectorMacho = [];	
+				$caboPP = [];	
+				$acoplador = [];	
+			  $tipoRede = [];
+				$TCS = [];		 
+				$Trilho = [];
+				$CaboA = [];
+				$CaboB = [];			
+				$Conector = [];
+				$Painel = [];
+				$Parafuso = [];		 
+						 
+	
+						 
+						 
+			
+				foreach($Inversor->getDataAs("Product") as $i){
+					$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+					$Inv[] = [
+						"id" => $i->get("id"),
+            "name" => $nome,
+            "type" => $i->get("product_type")
+          ];
+				}
+				
+				foreach($Kits->getDataAs("Product") as $i){
+					$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+					$Kit[] = [
+						"id" => $i->get("id"),
+            "name" => $nome,
+            "type" => $i->get("product_type")
+          ];
+				}
+			
+				foreach($Trilhos->getDataAs("Product") as $i){
+					$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+					$Trilho[] = [
+						"id" => $i->get("id"),
+            "name" => $nome,
+            "type" => $i->get("product_type")
+          ];
+				}
+			
+				foreach($CabosP->getDataAs("Product") as $i){						
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$CaboA[] = [
+						"id" => $i->get("id"),
+						"name" => $nome,
+						"type" => $i->get("product_type")
+						];					
+				}
+			
+				foreach($CabosN->getDataAs("Product") as $i){						
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$CaboB[] = [
+						"id" => $i->get("id"),
+						"name" => $nome,
+						"type" => $i->get("product_type")
+						];					
+				}
+			
+	  
+				foreach($Produtos->getDataAs("Product") as $i){
+					
+					if(strpos($i->get("name"), 'CABO TRONCO') !== false){
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$caboQ[] = [
+							"id" => $i->get("id"),
+							"name" => $nome,
+							"type" => $i->get("product_type")
+          	];
+					} else if(strpos($i->get("name"), 'Q-TERM') !== false){
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$caboTerm[] = [
+							"id" => $i->get("id"),
+							"name" => $nome,
+							"type" => $i->get("product_type")
+          	];
+					} else if(strpos($i->get("name"), 'MARTELO') !== false){
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$Parafuso[] = [
+							"id" => $i->get("id"),
+							"name" => $nome,
+							"type" => $i->get("product_type")
+          	];
+					}  else if(strpos($i->get("name"), 'CONECTOR FEMEA') !== false){
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$conectorFemea[] = [
+							"id" => $i->get("id"),
+							"name" => $nome,
+							"type" => $i->get("product_type")
+          	];
+					} else if(strpos($i->get("name"), 'CONECTOR MACHO') !== false){
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$conectorMacho[] = [
+							"id" => $i->get("id"),
+							"name" => $nome,
+							"type" => $i->get("product_type")
+          	];
+					} else if(strpos($i->get("name"), 'CABO PP') !== false){
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$caboPP[] = [
+							"id" => $i->get("id"),
+							"name" => $nome,
+							"type" => $i->get("product_type")
+          	];
+					}else if(strpos($i->get("name"), 'ACOPLADOR TRIFASICO') !== false){
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$acoplador[] = [
+							"id" => $i->get("id"),
+							"name" => $nome,
+							"type" => $i->get("product_type")
+          	];
+					}else if(strpos($i->get("name"), 'AM1-230-60') !== false && ( $TipoRede == '1' || $TipoRede == '2' || $TipoRede == '5' ) ){
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$tipoRede[] = [
+							"id" => $i->get("id"),
+							"name" => $nome,
+							"type" => $i->get("product_type")
+          	];
+					}else  if(strpos($i->get("name"), 'AM3-3P') !== false &&  $TipoRede == '3'   ){
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$tipoRede[] = [
+							"id" => $i->get("id"),
+							"name" => $nome,
+							"type" => $i->get("product_type")
+          	];
+					}else if(strpos($i->get("name"), 'AM1-240') !== false &&  $TipoRede == '4'   ){
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$tipoRede[] = [
+							"id" => $i->get("id"),
+							"name" => $nome,
+							"type" => $i->get("product_type")
+          	];
+					}else if(strpos($i->get("name"), 'CT-200-SPLIT') !== false  ){
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$TCS[] = [
+							"id" => $i->get("id"),
+							"name" => $nome,
+							"type" => $i->get("product_type")
+          	];
+					} else if ($i->get("product_type") == "Conectores MC4"){
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$Conector[] = [
+							"id" => $i->get("id"),
+							"name" => $nome,
+							"type" => $i->get("product_type")
+          	];
+					}	else if ($i->get("product_type") == "Painel"){
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$Painel[] = [
+							"id" => $i->get("id"),
+							"name" => $nome,
+							"type" => $i->get("product_type")
+          	];
+					}			
+				}
+      	
+				$this->resp->conta = $AuthUser->get("account_type");
+				$this->resp->producerKit = $producerKit;
+				$this->resp->Kit = $Painel;
+				$this->resp->KitFix = $Kit;
+        $this->resp->Inversor = $Inv;        
+       	$this->resp->Trilho = $Trilho;
+				$this->resp->caboQ = $caboQ;
+				$this->resp->parafuso = $Parafuso;		 
+				$this->resp->conectorMacho = $conectorMacho;
+				$this->resp->conectorFemea = $conectorFemea;
+				$this->resp->caboPP = $caboPP;
+				$this->resp->acoplador = $acoplador;
+				$this->resp->gateway = $tipoRede;
+				$this->resp->caboTerm = $caboTerm;
+				$this->resp->TCS =	$TCS;
+				$this->resp->CaboA = $CaboA;
+			  $this->resp->CaboB = $CaboB;
+				$this->resp->Conectores = $Conector;
+        $this->resp->result = 1;
+						 
+						 
+						 
+			
+				 } else{
+						 
+					
+				$Kits = Controller::model("Products");			
+			
+				$Kits->where("is_active","=", 1)
+						 ->where("producer","=",$producerKit)
+						 ->where("product_type","=","Kit de Fixação")
+						 ->where("product_model","=",$model)
+						 ->orderBy("name","ASC")
+						 ->fetchData();			
+				
+				$Inversor = Controller::model("Products");			
+			
+				$Inversor->where("is_active","=", 1)
+								 ->where("producer","=",$producerInversor)
+								 ->where("product_type","=","Inversor")								 
+								 ->orderBy("name","ASC")
+								 ->fetchData();
+			
+				$Trilhos = Controller::model("Products");			
+			
+				$Trilhos->where("is_active","=", 1)
+						 ->where("producer","=",$producerKit)
+						 ->where("product_type","=","Trilho")					
+						 ->orderBy("name","ASC")
+						 ->fetchData();
+			
+				$CabosP = Controller::model("Products");			
+			
+				$CabosP->where("is_active","=", 1)
+						 ->where("producer","=", $producerCabo)
+						 ->where("product_type","=","Cabo Positivo")					
+						 ->orderBy("name","ASC")
+						 ->fetchData();
+			
+				$CabosN = Controller::model("Products");			
+			
+				$CabosN->where("is_active","=", 1)
+						 ->where("producer","=", $producerCabo)
+						 ->where("product_type","=","Cabo Negativo")					
+						 ->orderBy("name","ASC")
+						 ->fetchData();
+			
+				$Produtos = Controller::model("Products");			
+			
+				$Produtos->where("is_active","=", 1)								 
+								 ->where("product_type","<>","Inversor")
+								 ->where("product_type","<>","Kit de Fixação")
+								 ->orderBy("name","ASC")
+								 ->fetchData();
+			
+        
+        $Inv = [];
+				$Kit = [];
+				$String = [];
+				$Trilho = [];
+				$CaboA = [];
+				$CaboB = [];			
+				$Conector = [];
+				$Painel = [];
+			
+				foreach($Inversor->getDataAs("Product") as $i){
+					$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+					$Inv[] = [
+						"id" => $i->get("id"),
+            "name" => $nome,
+            "type" => $i->get("product_type")
+          ];
+				}
+				
+				foreach($Kits->getDataAs("Product") as $i){
+					$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+					$Kit[] = [
+						"id" => $i->get("id"),
+            "name" => $nome,
+            "type" => $i->get("product_type")
+          ];
+				}
+			
+				foreach($Trilhos->getDataAs("Product") as $i){
+					$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+					$Trilho[] = [
+						"id" => $i->get("id"),
+            "name" => $nome,
+            "type" => $i->get("product_type")
+          ];
+				}
+			
+				foreach($CabosP->getDataAs("Product") as $i){						
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$CaboA[] = [
+						"id" => $i->get("id"),
+						"name" => $nome,
+						"type" => $i->get("product_type")
+						];					
+				}
+			
+				foreach($CabosN->getDataAs("Product") as $i){						
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$CaboB[] = [
+						"id" => $i->get("id"),
+						"name" => $nome,
+						"type" => $i->get("product_type")
+						];					
+				}
+			
+	  
+				foreach($Produtos->getDataAs("Product") as $i){
+					if ($i->get("product_type") == "String Box"){
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$String[] = [
+							"id" => $i->get("id"),
+							"name" => $nome,
+							"type" => $i->get("product_type")
+          	];
+					} else if ($i->get("product_type") == "Conectores MC4"){
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$Conector[] = [
+							"id" => $i->get("id"),
+							"name" => $nome,
+							"type" => $i->get("product_type")
+          	];
+					}	else if ($i->get("product_type") == "Painel"){
+						$nome = "(" . $i->get("santri_cod") . ") " . $i->get("name");
+						$Painel[] = [
+							"id" => $i->get("id"),
+							"name" => $nome,
+							"type" => $i->get("product_type")
+          	];
+					}			
+				}
+      
+				$this->resp->conta = $AuthUser->get("account_type");
+				$this->resp->producerKit = $producerKit;
+				$this->resp->Kit = $Painel;
+				$this->resp->KitFix = $Kit;
+        $this->resp->Inversor = $Inv;        
+       	$this->resp->Trilho = $Trilho;
+				$this->resp->String = $String;
+				$this->resp->CaboA = $CaboA;
+			  $this->resp->CaboB = $CaboB;
+				$this->resp->Conectores = $Conector;
+        $this->resp->result = 1;	 
+						 
+						 
+						 
+					 }
+			
+			
+			
+			
+			
+			
+			
+			
+        
+        $this->jsonecho();
+    }
+
+
+    /**
+     * Save (new|edit) user
+     * @return void
+     */
+    private function save()
+    {
+        $this->resp->result = 0;
+        $AuthUser = $this->getVariable("AuthUser");
+        $Order = $this->getVariable("User");
+
+        // Check if this is new or not
+        $is_new = !$Order->isAvailable();	
+			
+				$Frete =  Controller::model("Frete");
+				$Frete->select($Order->get("order_id"));
+
+				if ($Frete->isAvailable()){
+					$this->resp->frete = 1;
+					$this->jsonecho();
+				}  
+				
+        // Check required fields
+        $required_fields = ["status", "client", "typeOrder", "modelType", "producerKit", "producerInversor", "ufFrete", "paymentMode", "products"];
+
+        foreach ($required_fields as $field) {
+            if (!Input::post($field)) {
+                $this->resp->msg = __("Preencha todos os campos obrigatórios");
+                $this->jsonecho();
+            }
+        }
+			
+			 $MargemLucro = preg_replace('#[^0-9\.,]#', '', Input::post("margemLucro"));
+			 $MargemLucro = str_replace(',', '.', $MargemLucro);
+      	
+			 if ($AuthUser->get("account_type") == "supervisor" && $MargemLucro < 12){
+				 $this->resp->block = 1;
+				 $this->jsonecho();
+			 }
+			
+        if ($is_new){
+          $version = "1";
+          $Orders = Controller::model("Orders") 
+                   ->limit(1)
+                   ->orderBy("id","DESC")
+                   ->fetchData(); 
+          
+        $orderId = [];
+      	
+        foreach($Orders->getDataAs("Order") as $s){
+          $orderId = $s->get("order_id") + 1;				
+					break;
+        } 
+          
+        } else {
+          $version = $Order->get("version") + 1;
+          $orderId = $Order->get("order_id");
+        }
+
+             
+       $Client = Controller::model("Cliente", Input::post("client"));
+       $Vendor = Controller::model("User", Input::post("seller"));
+       $Pagamento = Controller::model("Payment", Input::post("paymentMode"));
+			
+       $Cliente[] = [
+         "id" => $Client->get("id"),
+				 "cod_santri" => $Client->get("cod_santri"),
+         "name" => $Client->get("name"),
+         "cnpj" => $Client->get("cnpj"),
+         "uf" => $Client->get("uf"),
+				 "address" => $Client->get("address"),
+				 "bairro" => $Client->get("bairro"),
+         "type" => $Client->get("client_type"),
+				 "city" => $Client->get("city"),
+				 "cep" => $Client->get("cep"),
+				 "phone" => $Client->get("phone")
+       ];
+      
+       $Vendedor[] = [
+         "id" => $Vendor->get("id"),
+         "name" => $Vendor->get("firstname") . " " . $Vendor->get("lastname"),
+         "phone" => $Vendor->get("phone"),
+         "email" => $Vendor->get("email")        
+       ];
+      
+       $PaymentDetails[] = [         
+         "paymentTerms" => Input::post("paymentMode"),
+				 "paymentName" => $Pagamento->get("name"),
+         "typeOrder" => Input::post("typeOrder")      			 
+       ];
+      
+       $ProductDetails[] = [       
+         "modelType" => Input::post("modelType"),
+         "producerKit" => Input::post("producerKit"),
+         "producerInversor" => Input::post("producerInversor"),
+				 "producerCabo" => Input::post("producerCabo"),
+				 "tensao" => Input::post("tensao"),
+				 "medir" => Input::post("medir"),
+				 "medir_cc" => Input::post("medir_cc"),
+				 "fases" => Input::post("fases"),
+				 "kwpReal" => Input::post("kwpReal")
+       ];
+			
+			$TotalUnit = preg_replace('#[^0-9\.,]#', '',Input::post("totalUnitField"));
+			$TotalUnit = str_replace('.', '',$TotalUnit);
+			$TotalUnit = str_replace(',', '.',$TotalUnit);
+			
+			$TotalTotal = preg_replace('#[^0-9\.,]#', '',Input::post("totalTotalField"));
+			$TotalTotal = str_replace('.', '',$TotalTotal);
+			$TotalTotal = str_replace(',', '.',$TotalTotal);
+			
+			$MargemLucro = preg_replace('#[^0-9\.,]#', '', Input::post("margemLucro"));
+			 $MargemLucro = str_replace(',', '.', $MargemLucro);	
+			
+			$Desconto = preg_replace('#[^0-9\.,]#', '',Input::post("desconto"));
+			$Desconto = str_replace(',', '.',$Desconto);
+			
+			
+			$PriceTotal[] = [       
+         "totalUnit" => $TotalUnit,         
+         "totalTotal" => $TotalTotal,
+				 "margemLucro" => $MargemLucro,
+				 "desconto" => $Desconto
+       ];		
+      
+       $Products = Input::post("products");
+			 $PrazoEntregaReal = 0;
+       $Product = [];
+       foreach ($Products as $p) {	
+				 
+				 $Produc = Controller::model("Product", $p['id']);
+				 $Garantia = $Produc->get("garantia");
+				 $PrazoEntrega = $Produc->get("prazo_entrega");
+				 $Type = $Produc->get("product_type");
+				 $Producer = $Produc->get("producer");
+				 
+				 if ($PrazoEntregaReal < $PrazoEntrega){
+					 $PrazoEntregaReal = $PrazoEntrega;
+				 }
+				 
+          $Product[] = [
+						"id" => $p['id'],
+						"type" => $Type,
+            "product" => $p['product'],
+						"prazo_entrega" => $PrazoEntrega,
+            "quantidade" => $p['quantidade'],
+						"garantia" => $Garantia,
+						"producer" => $Producer,
+            "price" => $p['price'],
+						"margem_lucro" => $p['margemLucro'], 
+            "priceTotal" => $p['priceTotal']
+          ];					
+				}
+        
+       $Cliente = json_encode($Cliente);
+       $Vendedor = json_encode($Vendedor);
+       $PaymentDetails = json_encode($PaymentDetails);
+			 $PriceTotal = json_encode($PriceTotal);
+       $ProductDetails = json_encode($ProductDetails);      
+       $Product = json_encode($Product);
+      	
+				if (Input::post("renew") == 1){
+					$Data = date('y-m-d');
+					$Order->set("expirate_date", $Data);
+				}
+			  $santri = Input::post("santri");
+       // Start setting data
+       $Order->set("status", Input::post("status"))
+            ->set("version", $version)
+            ->set("order_id", $orderId)
+            ->set("santri_id", $santri)
+            ->set("client", $Cliente)
+            ->set("seller", $Vendedor)
+				 		->set("responsavel", $Vendor->get("id"))
+				 		->set("loja_responsavel", $Vendor->get("office"))
+            ->set("branch", Input::post("branch"))
+				 		->set("destiny", Input::post("ufClient"))
+				 		->set("uf_frete", Input::post("ufFrete"))
+            ->set("payment_details", $PaymentDetails)
+				 		->set("order_description", Input::post("description"))
+			    	->set("descriptionP", Input::post("descriptionP"))
+				 		->set("order_value", $PriceTotal)
+				 		->set("prazo_entrega", $PrazoEntregaReal)
+				    ->set("comissao", Input::post("comissao")) 
+				    ->set("comissaoActive", Input::post("comissaoActive"))
+            ->set("product_details", $ProductDetails)
+            ->set("products_order", $Product)      
+            ->set("power", Input::post("power"))				 		
+            ->set("owner", $AuthUser->get("id"));            
+
+       try {
+        $Order->save();
+          
+        $this->logs($AuthUser->get("id"), "success","Orçamento","Orçamento Nº <b>" .$orderId ."</b>  - Cliente: <b>" . $Client->get("name") . "</b> - Vendedor: <b>" . $Vendor->get("firstname") . "</b> - Detalhes de Pagamento: <b>".$Pagamento->get("name") . "</b> - Comissão: <b>". Input::post("comissao") ."</b> - Valor Total: <b>".$TotalTotal."</b> salvo com sucesso");  
+        } catch (Exception $e){
+        $this->logs($AuthUser->get("id"), "error","Orçamento","Erro ao modificar o Orçamento nº: ".$orderId.".<br/>" .$e);
+        }  
+			
+				       
+        $this->resp->result = 1;
+        if ($is_new) {
+            $this->resp->msg = __("Orçamento cadastrado com sucesso! Por favor, recarregue a página.");
+            $this->resp->reset = true;
+        } else {
+            $this->resp->msg = __("Alterações realizadas.");
+        }
+        $this->jsonecho();
+    }
+	
+	
+	    private function saveRascunho()
+    {
+        $this->resp->result = 0;
+				$Route = $this->getVariable("Route");
+				$Order = Controller::model("Rascunho");
+
+			
+			  $id = Input::post("id");		
+					
+				$Order->select($id,"id");
+        $AuthUser = $this->getVariable("AuthUser");
+      
+
+        // Check if this is new or not
+        $is_new = !$Order->isAvailable();	
+			
+				$Frete =  Controller::model("Frete");
+				$Frete->select($Order->get("order_id"));
+
+				if ($Frete->isAvailable()){
+					$this->resp->frete = 1;
+					$this->jsonecho();
+				}  
+				
+
+			
+			 $MargemLucro = preg_replace('#[^0-9\.,]#', '', Input::post("margemLucro"));
+			 $MargemLucro = str_replace(',', '.', $MargemLucro);
+      	
+			 if ($AuthUser->get("account_type") == "supervisor" && $MargemLucro < 12){
+				 $this->resp->block = 1;
+				 $this->jsonecho();
+			 }
+			
+        if ($is_new){
+          $version = "1";
+          $Orders = Controller::model("Rascunhos") 
+                   ->limit(1)
+                   ->orderBy("id","DESC")
+                   ->fetchData(); 
+          
+        $orderId = [];
+      	
+        foreach($Orders->getDataAs("Rascunho") as $s){
+          $orderId = $s->get("order_id") + 1;		
+					break;				
+        } 
+          
+        } else {
+          $version = $Order->get("version") + 1;
+          $orderId = $Order->get("order_id");
+        }
+
+             
+       $Client = Controller::model("Cliente", Input::post("client"));
+       $Vendor = Controller::model("User", Input::post("seller"));
+       $Pagamento = Controller::model("Payment", Input::post("paymentMode"));
+			
+       $Cliente[] = [
+         "id" => $Client->get("id"),
+				 "cod_santri" => $Client->get("cod_santri"),
+         "name" => $Client->get("name"),
+         "cnpj" => $Client->get("cnpj"),
+         "uf" => $Client->get("uf"),
+				 "address" => $Client->get("address"),
+				 "bairro" => $Client->get("bairro"),
+         "type" => $Client->get("client_type"),
+				 "city" => $Client->get("city"),
+				 "cep" => $Client->get("cep"),
+				 "phone" => $Client->get("phone")
+       ];
+      
+       $Vendedor[] = [
+         "id" => $Vendor->get("id"),
+         "name" => $Vendor->get("firstname") . " " . $Vendor->get("lastname"),
+         "phone" => $Vendor->get("phone"),
+         "email" => $Vendor->get("email")        
+       ];
+      
+       $PaymentDetails[] = [         
+         "paymentTerms" => Input::post("paymentMode"),
+				 "paymentName" => $Pagamento->get("name"),
+         "typeOrder" => Input::post("typeOrder")      			 
+       ];
+      
+       $ProductDetails[] = [       
+         "modelType" => Input::post("modelType"),
+         "producerKit" => Input::post("producerKit"),
+         "producerInversor" => Input::post("producerInversor"),
+				 "producerCabo" => Input::post("producerCabo"),
+				 "tensao" => Input::post("tensao"),
+				 "medir" => Input::post("medir"),
+				 "medir_cc" => Input::post("medir_cc"),
+				 "fases" => Input::post("fases"),
+				 "kwpReal" => Input::post("kwpReal")
+       ];
+			
+			$TotalUnit = preg_replace('#[^0-9\.,]#', '',Input::post("totalUnitField"));
+			$TotalUnit = str_replace('.', '',$TotalUnit);
+			$TotalUnit = str_replace(',', '.',$TotalUnit);
+			
+			$TotalTotal = preg_replace('#[^0-9\.,]#', '',Input::post("totalTotalField"));
+			$TotalTotal = str_replace('.', '',$TotalTotal);
+			$TotalTotal = str_replace(',', '.',$TotalTotal);
+			
+			$MargemLucro = preg_replace('#[^0-9\.,]#', '', Input::post("margemLucro"));
+			 $MargemLucro = str_replace(',', '.', $MargemLucro);	
+			
+			$Desconto = preg_replace('#[^0-9\.,]#', '',Input::post("desconto"));
+			$Desconto = str_replace(',', '.',$Desconto);
+			
+			
+			$PriceTotal[] = [       
+         "totalUnit" => $TotalUnit,         
+         "totalTotal" => $TotalTotal,
+				 "margemLucro" => $MargemLucro,
+				 "desconto" => $Desconto
+       ];		
+      
+       $Products = Input::post("products");
+			 $PrazoEntregaReal = 0;
+       $Product = [];
+       foreach ($Products as $p) {	
+				 
+				 $Produc = Controller::model("Product", $p['id']);
+				 $Garantia = $Produc->get("garantia");
+				 $PrazoEntrega = $Produc->get("prazo_entrega");
+				 $Type = $Produc->get("product_type");
+				 $Producer = $Produc->get("producer");
+				 
+				 if ($PrazoEntregaReal < $PrazoEntrega){
+					 $PrazoEntregaReal = $PrazoEntrega;
+				 }
+				 
+          $Product[] = [
+						"id" => $p['id'],
+						"type" => $Type,
+            "product" => $p['product'],
+						"prazo_entrega" => $PrazoEntrega,
+            "quantidade" => $p['quantidade'],
+						"garantia" => $Garantia,
+						"producer" => $Producer,
+            "price" => $p['price'],
+						"margem_lucro" => $p['margemLucro'], 
+            "priceTotal" => $p['priceTotal']
+          ];					
+				}
+        
+       $Cliente = json_encode($Cliente);
+       $Vendedor = json_encode($Vendedor);
+       $PaymentDetails = json_encode($PaymentDetails);
+			 $PriceTotal = json_encode($PriceTotal);
+       $ProductDetails = json_encode($ProductDetails);      
+       $Product = json_encode($Product);
+      	
+				if (Input::post("renew") == 1){
+					$Data = date('y-m-d');
+					$Order->set("expirate_date", $Data);
+				}
+			  $santri = Input::post("santri");
+       // Start setting data
+       $Order->set("status", Input::post("status"))
+            ->set("version", $version)
+            ->set("order_id", $orderId)
+            ->set("santri_id", $santri)
+            ->set("client", $Cliente)
+            ->set("seller", $Vendedor)
+				 		->set("responsavel", $AuthUser->get("id"))
+				 		->set("loja_responsavel", $AuthUser->get("office"))
+            ->set("branch", Input::post("branch"))
+				 		->set("destiny", Input::post("ufClient"))
+				 		->set("uf_frete", Input::post("ufFrete"))
+            ->set("payment_details", $PaymentDetails)
+				 		->set("order_description", Input::post("description"))
+				    ->set("descriptionP", Input::post("descriptionP"))
+				 		->set("order_value", $PriceTotal)
+				 		->set("prazo_entrega", $PrazoEntregaReal)
+				    ->set("comissao", Input::post("comissao")) 
+				    ->set("comissaoActive", Input::post("comissaoActive"))
+            ->set("product_details", $ProductDetails)
+            ->set("products_order", $Product)      
+            ->set("power", Input::post("power"))				 		
+            ->set("owner", $AuthUser->get("id"));              
+
+       try {
+        $Order->save();
+          
+        $this->logs($AuthUser->get("id"), "success","Orçamento","Orçamento Nº <b>" .$orderId ."</b>  - Cliente: <b>" . $Client->get("name") . "</b> - Vendedor: <b>" . $Vendor->get("firstname") ."</b><br/> Detalhes de Pagamento: <b>".$Pagamento->get("name") . "</b> - Comissão: <b>". Input::post("comissao") ."</b><br/> Valor Total: <b>".$TotalTotal."</b> salvo com sucesso");  
+        } catch (Exception $e){
+        $this->logs($AuthUser->get("id"), "error","Orçamento","Erro ao modificar o Orçamento nº: ".$orderId.".<br/>" .$e);
+        }  
+			
+				       
+        $this->resp->result = 1;
+				$this->resp->id = $Order->get("id");
+        if ($is_new) {
+            $this->resp->msg = __("Orçamento cadastrado com sucesso! Por favor, recarregue a página.");
+            $this->resp->reset = true;
+        } else {
+            $this->resp->msg = __("Alterações realizadas.");
+        }
+        $this->jsonecho();
+    }
+	
+	
+	
+	
+	
+	/**
+     * Save (new|edit) user
+     * @return void
+     */
+    private function copyOrder()
+    {
+        $this->resp->result = 0;
+        $AuthUser = $this->getVariable("AuthUser");
+        $Order = Controller::model("Order");
+				
+        // Check required fields
+        $required_fields = ["client", "typeOrder", "modelType", "producerKit", "producerInversor", "ufFrete", "paymentMode", "products"];
+
+        foreach ($required_fields as $field) {
+            if (!Input::post($field)) {
+                $this->resp->msg = __("Preencha todos os campos obrigatórios");
+                $this->jsonecho();
+            }
+        }
+			
+			 $MargemLucro = preg_replace('#[^0-9\.,]#', '', Input::post("margemLucro"));
+			 $MargemLucro = str_replace(',', '.', $MargemLucro);
+      	
+			 if ($AuthUser->get("account_type") == "supervisor" && $MargemLucro < 12){
+				 $this->resp->block = 1;
+				 $this->jsonecho();
+			 }
+			
+        
+          $version = "1";
+          $Orders = Controller::model("Orders") 
+                   ->limit(1)
+                   ->orderBy("id","DESC")
+                   ->fetchData(); 
+          
+        $orderId = [];
+      	
+        foreach($Orders->getDataAs("Order") as $s){
+          $orderId = $s->get("order_id") + 1;		
+					break;
+        } 
+
+             
+       $Client = Controller::model("Cliente", Input::post("client"));
+       $Vendor = Controller::model("User", Input::post("seller"));
+       $Pagamento = Controller::model("Payment", Input::post("paymentMode"));
+			
+       $Cliente[] = [
+         "id" => $Client->get("id"),
+         "cod_santri" => $Client->get("cod_santri"),
+         "name" => $Client->get("name"),
+         "cnpj" => $Client->get("cnpj"),
+         "uf" => $Client->get("uf"),
+				 "address" => $Client->get("address"),
+				 "bairro" => $Client->get("bairro"),
+         "type" => $Client->get("client_type"),
+				 "city" => $Client->get("city"),
+				 "cep" => $Client->get("cep"),
+				 "phone" => $Client->get("phone")
+       ];
+      
+       $Vendedor[] = [
+         "id" => $Vendor->get("id"),
+         "name" => $Vendor->get("firstname") . " " . $Vendor->get("lastname"),
+         "phone" => $Vendor->get("phone"),
+         "email" => $Vendor->get("email")        
+       ];
+      
+       $PaymentDetails[] = [         
+         "paymentTerms" => Input::post("paymentMode"),
+				 "paymentName" => $Pagamento->get("name"),
+         "typeOrder" => Input::post("typeOrder")      			 
+       ];
+      
+       $ProductDetails[] = [       
+         "modelType" => Input::post("modelType"),
+         "producerKit" => Input::post("producerKit"),
+         "producerInversor" => Input::post("producerInversor"),
+				 "tensao" => Input::post("tensao"),
+				 "medir" => Input::post("medir"),
+				 "medir_cc" => Input::post("medir_cc"),
+				 "fases" => Input::post("fases"),
+				 "kwpReal" => Input::post("kwpReal")
+       ];
+			
+			$TotalUnit = preg_replace('#[^0-9\.,]#', '',Input::post("totalUnitField"));
+			$TotalUnit = str_replace('.', '',$TotalUnit);
+			$TotalUnit = str_replace(',', '.',$TotalUnit);
+			
+			$TotalTotal = preg_replace('#[^0-9\.,]#', '',Input::post("totalTotalField"));
+			$TotalTotal = str_replace('.', '',$TotalTotal);
+			$TotalTotal = str_replace(',', '.',$TotalTotal);
+			
+			$MargemLucro = preg_replace('#[^0-9\.,]#', '', Input::post("margemLucro"));
+			 $MargemLucro = str_replace(',', '.', $MargemLucro);	
+			
+			$Desconto = preg_replace('#[^0-9\.,]#', '',Input::post("desconto"));
+			$Desconto = str_replace(',', '.',$Desconto);
+			
+			
+			$PriceTotal[] = [       
+         "totalUnit" => $TotalUnit,         
+         "totalTotal" => $TotalTotal,
+				 "margemLucro" => $MargemLucro,
+				 "desconto" => $Desconto
+       ];		
+      
+       $Products = Input::post("products");
+			 $PrazoEntregaReal = 0;
+       $Product = [];
+       foreach ($Products as $p) {	
+				 
+				 $Produc = Controller::model("Product", $p['id']);
+				 $Garantia = $Produc->get("garantia");
+				 $PrazoEntrega = $Produc->get("prazo_entrega");
+				 $Type = $Produc->get("product_type");
+				 $Producer = $Produc->get("producer");
+				 
+				 if ($PrazoEntregaReal < $PrazoEntrega){
+					 $PrazoEntregaReal = $PrazoEntrega;
+				 }
+				 
+          $Product[] = [
+						"id" => $p['id'],
+						"type" => $Type,
+            "product" => $p['product'],
+						"prazo_entrega" => $PrazoEntrega,
+            "quantidade" => $p['quantidade'],
+						"garantia" => $Garantia,
+						"producer" => $Producer,
+            "price" => $p['price'],
+						"margem_lucro" => $p['margemLucro'], 
+            "priceTotal" => $p['priceTotal']
+          ];					
+				}
+        
+       $Cliente = json_encode($Cliente);
+       $Vendedor = json_encode($Vendedor);
+       $PaymentDetails = json_encode($PaymentDetails);
+			 $PriceTotal = json_encode($PriceTotal);
+       $ProductDetails = json_encode($ProductDetails);      
+       $Product = json_encode($Product);
+      	
+				if (Input::post("renew") == 1){
+					$Data = date('y-m-d');
+					$Order->set("expirate_date", $Data);
+				}
+			
+       // Start setting data
+       $Order->set("status", "2")
+            ->set("version", $version)
+            ->set("order_id", $orderId)
+            ->set("client", $Cliente)
+            ->set("seller", $Vendedor)
+				 		->set("responsavel", $Vendor->get("id"))
+				 		->set("loja_responsavel", $Vendor->get("office"))
+            ->set("branch", Input::post("branch"))
+				 		->set("destiny", Input::post("ufClient"))
+				 		->set("uf_frete", Input::post("ufFrete"))
+            ->set("payment_details", $PaymentDetails)
+				 		->set("order_description", Input::post("description"))
+				 		->set("order_value", $PriceTotal)
+				 		->set("prazo_entrega", $PrazoEntregaReal)
+				    ->set("comissao", Input::post("comissao")) 
+				    ->set("comissaoActive", Input::post("comissaoActive"))
+            ->set("product_details", $ProductDetails)
+            ->set("products_order", $Product)      
+            ->set("power", Input::post("power"))				 		
+            ->set("owner", $AuthUser->get("id"));            
+
+       try {
+        $Order->save();
+          
+        $this->logs($AuthUser->get("id"), "success","Orçamento","Orçamento Nº <b>" .$orderId ."</b>  - Cliente: <b>" . $Client->get("name") . "</b> - Vendedor: <b>" . $Vendor->get("firstname") ."</b><br/> Valor Frete: <b>".$valorFrete."</b> - Detalhes de Pagamento: <b>".$Pagamento->get("name") . "</b> - Comissão: <b>". Input::post("comissao") ."</b><br/> Valor Total: <b>".$TotalTotal."</b> - ... duplicado com sucesso pelo usuário: ". $AuthUser->get("firstname"));  
+        } catch (Exception $e){
+        $this->logs($AuthUser->get("id"), "error","Orçamento","Erro ao modificar o Orçamento nº: ".$orderId.".<br/>" .$e);
+        }  
+			  
+        $this->resp->result = 1;
+      	$this->resp->idOrder = $Order->get("id");
+        $this->jsonecho();
+    }
+	
+		    private function removeRascunho()
+    {
+        $this->resp->result = 0;
+        $AuthUser = $this->getVariable("AuthUser");
+
+        if (!Input::post("idRascunho")) {
+            $this->jsonecho();
+        }
+
+        $User = Controller::model("Rascunho", Input::post("idRascunho"));
+
+        if (!$User->isAvailable()) {
+            $this->jsonecho();
+          }       
+
+        $User->delete();
+
+        $this->resp->result = 1;
+        $this->jsonecho();
+		exit;			
+    }
+
+
+}

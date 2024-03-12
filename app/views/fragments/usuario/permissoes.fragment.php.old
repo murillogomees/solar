@@ -1,0 +1,53 @@
+<?php $filiais = json_decode($User->get("permissoes"));?>
+
+<div class="section-content">
+	<div class="form-result"></div>
+	<div class="clearfix mb-20">
+		
+		<div class="col s12 s-last m4 m-last l12 l-last pos-r">
+			<label class="form-label">
+							<span class="compulsory-field-indicator">*</span>
+							<?= __("Visualizar Loja:") ?>
+							<span class="tooltip tippy"
+										data-position="top"
+										data-size="small"
+										title="<?= __("loja que podera visualizar orçamentos") ?>">
+										<span class="mdi mdi-help-circle" ></span>
+					</label>
+				  
+                                                 
+                                                    
+			 <div class="form-check">
+				<input class="form-check-input" name="filial1" type="checkbox" value="true" <?= $filiais->filiais->mtz == true ? "checked" : "" ?>>
+				<label class="form-check-label" for="flexCheckDefault"> Matriz</label>
+		  </div>
+		 	<div class="form-check">
+				<input class="form-check-input" name="filial2" type="checkbox" value="true" <?= $filiais->filiais->gyn == true ? "checked" : "" ?>>
+				<label class="form-check-label" for="flexCheckDefault"> Gyn T2 </label>
+		  </div>	
+			<div class="form-check">
+				<input class="form-check-input" name="filial3" type="checkbox" value="true" <?= $filiais->filiais->plm == true ? "checked" : "" ?>>
+				<label class="form-check-label" for="flexCheckDefault"> Palmas </label>
+		  </div>
+		 	<div class="form-check">
+				<input class="form-check-input" name="filial4" type="checkbox" value="true" <?= $filiais->filiais->rvd == true ? "checked" : "" ?>>
+				<label class="form-check-label" for="flexCheckDefault"> Rio Verde</label>
+		  </div>	
+		  <div class="form-check">
+				<input class="form-check-input" name="filial7" type="checkbox" value="true" <?= $filiais->filiais->gdr == true ? "checked" : "" ?>>
+				<label class="form-check-label" for="flexCheckDefault"> Gyn Radial</label>
+		  </div>
+		 	<div class="form-check">
+				<input class="form-check-input" name="filial8" type="checkbox" value="true" <?= $filiais->filiais->ftz == true ? "checked" : "" ?>>
+				<label class="form-check-label" for="flexCheckDefault"> Fortaleza </label>
+		  </div>	
+			<div class="form-check">
+				<input class="form-check-input" name="filial9" type="checkbox" value="true" <?= $filiais->filiais->fbe == true ? "checked" : "" ?>>
+				<label class="form-check-label" for="flexCheckDefault"> Brasilia Externa </label>
+		  </div>	
+				
+		</div>
+	</div>
+ </div>
+</div>
+                   

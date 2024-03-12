@@ -1,0 +1,273 @@
+.tit-top-table {
+  font-color: #fff !important;
+  text-align: left !important;
+}
+
+.cont-table {
+  
+}
+
+.img-order {
+  max-width: 50%;
+  max-height: 100%;
+  opacity: 0.1;
+  position: absolute;
+  left: 25%;
+  top: 23%;
+  
+}
+
+.img-order2 {
+   margin-top: -20px !important;
+}
+
+.order {
+  position:relative;
+  left: 56%;
+  
+}
+
+.bud-pos {
+  text-align: center !important;
+}
+
+.subtotal-pos {
+  float: right !important;
+}
+
+body {
+  font-size: 13px !important;
+}
+
+.inv-orca {
+  margin-left: -12px;
+}
+
+.pos-vendedor {
+  position: relative !important;
+  left: 250px !important;
+}
+
+.no-top {
+ position: relative !important;
+ top: -36px !important;
+ margin-bottom: -19px !important;
+ font-style: italic !important;
+ font-weight: bold !important;
+  }
+
+.top-subs {
+ position: relative !important;
+ top: -7px !important;
+}
+
+.bgdt {
+  margin-top: 50px !important;
+}
+
+.text-responsavel {
+  font-size: 8px !important;
+}
+
+.termo-responsavel {
+  line-height: 400px !important;
+}
+
+.invoice-date {
+  padding-top: 42px;
+}
+
+.dados-horus {
+  padding-top: 21px;
+}
+  
+
+
+@media print {
+  
+  .thead-dark {
+    background-color: #fff;
+  }
+  
+   .img-order {
+  max-width: 50% !important;
+  max-height: 100% !important;
+  opacity: 0.1 !important;
+  position: absolute !important;
+  left: 25% !important;
+  top: 40% !important;
+ 
+  
+  }
+  
+ .subtotal-pos {
+  float: right !important;
+}
+  .bud-pos {
+   text-align: center; !important;
+    position: relative !important;
+    left: 25% !important;
+  }
+   .inv-orca {
+   float: left; !important;
+     
+  }
+ 
+ 
+  
+  .imp-pos {
+    float:right !important;
+    display: -webkit-box !important;
+    
+  }
+  .invoice-subtotal {
+    margin-top: 40px !important;
+  }
+  
+  body {
+    margin: 2mm 8mm !important;
+    font-size: 13px !important;
+  }
+  .invoice-logo {
+    top: 17px !important;
+  }
+  .budget {
+  border: 2px solid #ebebeb;
+  font-style: italic;
+  font-size: 13px;
+  padding: 15px !important;
+}
+
+.budget > p:first-child {
+  color: red !important;
+  font-weight: bold;
+  
+}
+
+
+.img-order2 {
+   margin-top: -20px !important;
+}
+
+.order {
+  position:relative;
+  left: 56%;
+  
+}
+
+.bud-pos {
+  text-align: center !important;
+}
+
+.subtotal-pos {
+  float: right !important;
+}
+
+body {
+  font-size: 13px !important;
+}
+
+.inv-orca {
+  margin-left: -12px;
+}
+
+.pos-vendedor {
+  position: relative !important;
+  left: 250px !important;
+}
+ 
+.no-top {
+ position: relative !important;
+ top: -25px !important;
+ margin-bottom: -19px !important;
+ font-style: italic !important;
+ font-weight: bold !important;
+  margin-top: 30px !important;
+  
+  }
+  
+ .divider {
+    height: 1px !important;
+    background-color: #e0e0e0 !important;
+}
+  p {
+widows: 2 !important;
+}
+  p {
+orphans: 1 !important;
+}
+  
+}
+
+
+@media screen and (max-width: 1040px) {
+  
+  .img-order {
+    left: 0% !important;
+  }
+  
+}
+
+
+@media screen and (max-width: 600px) {
+  
+  .img-order {
+    left: 0% !important;
+  }
+  
+  .prop-order {
+    left: 0% !important;
+}
+
+}
+
+@media screen and (max-width: 375px) {
+  .subtotal-pos {
+    float: left !important;
+  }
+  
+  #valortotal {
+    left: 174px;
+  }
+  #valorfrete{
+    left: 173px;
+    
+  }
+  #ptsubtotal {
+    left: 150px;
+  }
+  #skwp {
+    left: 140px;
+  }
+  
+  #formapagamento {
+    left: 132px;
+  }
+  #pg-vendedor {
+    position:relative !important;
+    left: 0px !important;
+  }
+  .emiss {
+    font-size: 11px !important;
+  }
+  
+  .device-client {
+    margin-bottom: 65px !important;
+  }
+  
+  .device-divid {
+    display: contents !important;
+  }
+
+}
+
+
+
+
+
+
+
+
+
+
+
